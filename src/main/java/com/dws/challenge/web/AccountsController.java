@@ -1,12 +1,5 @@
 package com.dws.challenge.web;
 
-import com.dws.challenge.domain.Account;
-import com.dws.challenge.domain.MoneyTransferRequest;
-import com.dws.challenge.exception.DuplicateAccountIdException;
-import com.dws.challenge.service.AccountsService;
-
-import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -18,6 +11,15 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.dws.challenge.domain.Account;
+import com.dws.challenge.domain.MoneyTransferRequest;
+import com.dws.challenge.exception.AccountNotFoundException;
+import com.dws.challenge.exception.DuplicateAccountIdException;
+import com.dws.challenge.service.AccountsService;
+
+import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 
 
 @RestController
@@ -51,9 +53,19 @@ public class AccountsController {
     return this.accountsService.getAccount(accountId);
   }
   
+
   @PutMapping
-  public void transfer(@RequestBody MoneyTransferRequest request) {
-	  accountsService.transfer(request);
+  public  ResponseEntity<String>  transfer(@RequestBody MoneyTransferRequest request) {
+      try {
+    	  accountsService.transfer(request);
+          return ResponseEntity.ok("Transfer successful");
+      } catch (IllegalArgumentException e) {
+          return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+      } catch (AccountNotFoundException e) {
+          return ResponseEntity.status(HttpStatus.NO_CONTENT).body(e.getMessage());
+      } catch (Exception e) {
+          return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred during the transfer");
+      }
   }
 
 }
