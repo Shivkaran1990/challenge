@@ -1,7 +1,6 @@
 package com.dws.challenge.service;
 
 import java.math.BigDecimal;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,8 +19,6 @@ public class AccountsService {
 	@Autowired
 	private NotificationService notificationService;
 
-	private final ReentrantLock lock = new ReentrantLock();
-
 	public void createAccount(Account account) {
 		this.accountsRepository.createAccount(account);
 	}
@@ -36,22 +33,27 @@ public class AccountsService {
 
 		accountDataValidation(request, accountFrom, accountTo);
 
-		lock.lock();
-		try {
-			int result = accountFrom.getBalance().compareTo(request.getAmount());
-			if (result < 0) {
-				throw new IllegalArgumentException("Insufficient balance");
+		 Account accountFromLock, accountToLock;
+		    if (request.getAccountFromId().compareTo(request.getAccountToId()) < 0) {
+		    	accountFromLock = accountFrom;
+		    	accountToLock = accountTo;
+		    } else {
+		    	accountFromLock = accountTo;
+		    	accountToLock = accountFrom;
+		    }
+		
+		synchronized (accountFromLock) {
+			synchronized (accountToLock) {
+				int result=accountFrom.getBalance().compareTo(request.getAmount());
+				if ( result<0) {
+					throw new IllegalArgumentException("Insufficient balance");
+				}
+				accountFrom.withdraw(request.getAmount());
+				accountTo.deposit(request.getAmount());
+				accountsRepository.updateAccount(request.getAccountFromId(), accountFrom);
+				accountsRepository.updateAccount(request.getAccountToId(), accountTo);
+				notifyUsers(request, accountFrom, accountTo);
 			}
-
-			accountFrom.withdraw(request.getAmount());
-			accountTo.deposit(request.getAmount());
-
-			accountsRepository.updateAccount(request.getAccountFromId(), accountFrom);
-			accountsRepository.updateAccount(request.getAccountToId(), accountTo);
-
-			notifyUsers(request, accountFrom, accountTo);
-		} finally {
-			lock.unlock();
 		}
 	}
 
