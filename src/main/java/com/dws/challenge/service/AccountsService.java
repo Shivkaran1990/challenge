@@ -30,9 +30,8 @@ public class AccountsService {
 	public void transfer(MoneyTransferRequest request) {
 		Account accountFrom = accountsRepository.getAccount(request.getAccountFromId());
 		Account accountTo = accountsRepository.getAccount(request.getAccountToId());
-
-		accountDataValidation(request, accountFrom, accountTo);
-
+		
+		// this code will maintain the order of lock, so deadlock can be avoid
 		 Account accountFromLock, accountToLock;
 		    if (request.getAccountFromId().compareTo(request.getAccountToId()) < 0) {
 		    	accountFromLock = accountFrom;
@@ -41,9 +40,15 @@ public class AccountsService {
 		    	accountFromLock = accountTo;
 		    	accountToLock = accountFrom;
 		    }
-		
+		//this is transation based operation we have to maintain the consistency so at time only 
+		 //one thread should be able to perform write operation 
 		synchronized (accountFromLock) {
 			synchronized (accountToLock) {
+				// to get the lasted copy of data in case 2 thread comming at same time.
+				 accountFrom = accountsRepository.getAccount(request.getAccountFromId());
+				 accountTo = accountsRepository.getAccount(request.getAccountToId());
+				accountDataValidation(request, accountFrom, accountTo);
+				
 				int result=accountFrom.getBalance().compareTo(request.getAmount());
 				if ( result<0) {
 					throw new IllegalArgumentException("Insufficient balance");
